@@ -11,15 +11,15 @@ How to create a "correct" pedestrian's road graph from OSM data
 
 2. PostgreSQL:
 	psql -U postgres
-	create database rusanivka;
-	\c rusanivka
+	create database dbname; # dbname = rusanivka
+	\c dbname
 	CREATE EXTENSION IF NOT EXISTS postgis;
 	CREATE EXTENSION IF NOT EXISTS postgis_topology;
 
 	#(from osm2po logfile)
-	psql -U postgres -d rusanivka -q -f "/home/dvrnd/tools/osm2po/hh/hh_2po_4pgr.sql"
+	psql -U postgres_user -d dbname -q -f "osm2po/hh/hh_2po_4pgr.sql"
 
 	# create a GeoJSON file from hh_2po_4pgr table in our new database
 	# hh_2po_4pgr - each record is an edge with coordinates of nodes and geometry of lines between
-	ogr2ogr -f GeoJSON '/tmp/streets.json' "PG:host=localhost dbname=rusanivka user=postgres password=c2h5oh" -sql 'select * from hh_2po_4pgr'
+	ogr2ogr -f GeoJSON '/tmp/streets.json' "PG:host=localhost dbname=dbname user=postgres_user password=somepass" -sql 'select * from hh_2po_4pgr'
 
