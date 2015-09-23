@@ -1,0 +1,25 @@
+
+How to create a "correct" pedestrian's road graph from OSM data 
+
+... not a very easy task. After some failed attempts with QGIS, GRASS, NetworkX etc at last I found solution.
+
+1. osm2po - very impressive OSM converter and a routing engine (http://osm2po.de/)
+	1.1 after OSM data extraction (with a help of OSM plugin for QGIS) I changed config file (see osm2po.config in this dir, basically look at all settings with "foot") - you nedd to change settings to include walking paths
+	1.2 start osm2po (there is an example in demo.sh) and go to  http://localhost:8888/Osm2poService for checking how router engine is working for walking paths
+	1.3 osm2po exports a graph in form of a file with sql commands(for Postgresql), you need Postgis installed to import a data (look at .log file to see a command).
+
+
+2. PostgreSQL:
+	psql -U postgres
+	create database rusanivka;
+	\c rusanivka
+	CREATE EXTENSION IF NOT EXISTS postgis;
+	CREATE EXTENSION IF NOT EXISTS postgis_topology;
+
+	#(from osm2po logfile)
+	psql -U postgres -d rusanivka -q -f "/home/dvrnd/tools/osm2po/hh/hh_2po_4pgr.sql"
+
+	# create a GeoJSON file from hh_2po_4pgr table in our new database
+	# hh_2po_4pgr - each record is an edge with coordinates of nodes and geometry of lines between
+	ogr2ogr -f GeoJSON '/tmp/streets.json' "PG:host=localhost dbname=rusanivka user=postgres password=c2h5oh" -sql 'select * from hh_2po_4pgr'
+
