@@ -12,6 +12,22 @@ circle{
   stroke: none;
 }
 
+.link {
+  stroke: #000;
+  stroke-width: 1.5px;
+}
+
+.node {
+  cursor: move;
+  fill: #ccc;
+  stroke: #000;
+  stroke-width: 1.5px;
+}
+
+.node.fixed {
+  fill: #f00;
+}
+
 </style>
 <svg width="1900" height="1200"></svg>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.5/d3.min.js"></script>
@@ -55,6 +71,23 @@ d3.json("streets.json", function(error, collection) {
   	.attr('r', 2)
   	.style('fill', 'red')
 
+  var gr_data = d3.nest()
+    .key(function(d){return d.properties.source;})
+    .map(collection.features);
+
+//console.log(gr_data);
+
+  // make a graph
+    var graph_d3 = {nodes: [], links: []};
+    collection.features.forEach(function(r){
+        var is = +r.properties.source - 1; 
+        var it = +r.properties.target - 1; 
+        graph_d3.links.push({source: is, target: it})
+        graph_d3.nodes[is] = {x:  projection( [r.properties.x1, r.properties.y1] )[0], y: projection( [r.properties.x1, r.properties.y1] )[1]}
+        graph_d3.nodes[it] = {x: projection( [r.properties.x2, r.properties.y2] )[0], y: projection( [r.properties.x2, r.properties.y2] )[1]}
+    })
+
+    
 
 });
 
