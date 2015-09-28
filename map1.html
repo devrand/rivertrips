@@ -51,8 +51,9 @@ text{
 
 path.walk{
   stroke: dodgerblue;
+   stroke: orange;
   stroke-width: 0.1px;
-  stroke-opacity: 0.2;
+  stroke-opacity: 0.05;
   fill: none;
 }
 
@@ -77,12 +78,20 @@ var projection = d3.geo.mercator()
         .translate([width / 2, height / 2]);
 
 
+var distance = 0;
+
+
+
 var path = d3.geo.path()
     .projection(projection);
 
 var svg = d3.select("svg");
 
-d3.json("streets.json", function(error, collection) {
+
+var sample_size = 5000;
+var max_path = 50;
+d3.json("streets_changed.json", function(error, collection) {
+//d3.json("streets.json", function(error, collection) {
   if (error) throw error;
 
 
@@ -160,35 +169,55 @@ d3.json("streets.json", function(error, collection) {
     graph = graph_adj;
   //console.log( graph_adj );
     
+    node_list = d3.keys(graph);
+    // sources: array of nodes
+    
+    // Simulation ...
 
-    
-    
-    // simulation ...
-    for(var t = 0; t < 500; t++){
+    for(var t = 0; t < sample_size; t++){
           // our first agent 
-        // generate initial node  464, 122, 130, 173, 250
-        var agent1 = new Agent(graph_adj[130][0]);
-        agent1.add_to_map(svg);
-        agent1.line(svg);
+     /*     
+        // generate initial node  122, 130, 250, 210, 470, 467
         
-        var agent2 = new Agent(graph_adj[122][0]);
-        agent2.add_to_map(svg);
-        agent2.line(svg);
-        
-        var agent3 = new Agent(graph_adj[250][0]);
-        agent3.add_to_map(svg);
-        agent3.line(svg);
+    */
+        var src = get_random(0, node_list.length - 1);
+        var agent = new Agent(graph_adj[  node_list[src]  ][0]);
+        //agent.add_to_map(svg);
+         //agent.line(svg);
+     
+        update_node_count(agent.path, nodes);
+        distance += update_distance_count(   agent.way.filter(function(w){ return typeof w[0] !== 'undefined'; }) );
 
-        [agent1, agent2, agent3].forEach(function(a){
-          update_node_count(a.path, nodes);
-        })
+    
 
 
 
     }
-console.log(d3.selectAll('path.walk')[0].length)
-console.log(nodes);
+//console.log(d3.selectAll('path.walk')[0].length)
+//console.log(nodes);
+    var selected = filter_by_side(graph[632][0], graph[55][0], d3.values(graph), get_node);
+
+    var rezult = selected.reduce(function(memo, current){ var cur_val = nodes[current[0].source] || 0; return memo + cur_val }, 0);
+    console.log(rezult);
+    console.log(distance / sample_size);
+    //selected.forEach(function(n){ console.log(n[0].source); d3.select('#c'+n[0].source).style('fill', 'green')})
+
 });
+
+
+function get_node(raw_node){
+  return {x: raw_node[0].x1, y: raw_node[0].y1};
+}
+
+function line_side(n1, n2, point){
+  var det = (n2.x1 - n1.x1)*(point.y - n1.y1) - (n2.y1 - n1.y1)*(point.x - n1.x1);
+  return det >= 0 ? true : false;
+}
+
+function filter_by_side(n1, n2, nodelist, accessor ){  // determine where is our nodes
+  return nodelist.filter( function(n){  return  line_side(n1, n2, accessor(n)) }  );
+}
+
 
 function update_node_count(path, nodes){
   path.forEach(function(n){
@@ -197,6 +226,17 @@ function update_node_count(path, nodes){
   })
 }
 
+function update_distance_count(way){
+ var s = 0;  
+  for(var i = 1; i < way.length; i++ ){
+    var x1 = way[i-1][0], x2 = way[i][0], y1 = way[i-1][1], y2 = way[i][1];
+    //console.log([x1, x2, y1, y2])
+    s += Math.sqrt( (x2 - x1)*(x2 - x1) + (y2 - y1)*(y2 - y1) );
+  }
+  
+  return s;
+  
+}
 
 function get_random(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -225,7 +265,7 @@ function path_shortener(array){
   return array;
 }
 
-var stddev = 20;
+var stddev = 36;
 var line_fun = d3.svg.line()
   .x(function(d) { return d[0] + normalRandomScaled(0, stddev); }) // add jitter to lines
   .y(function(d) { return d[1] + normalRandomScaled(0, stddev); })
@@ -241,7 +281,7 @@ var Agent = (function() {
 
         function create_path(agent){
           var current_node = agent.node, path = [current_node], next_node_obj;
-          while(path.length < 50){
+          while(path.length < max_path){
             //nodes[current_node] = typeof nodes[current_node] === 'undefined' ? 1 : ++nodes[current_node];//count node crossing 
 
             var closest_nodes = graph[current_node]; // neighbours 
@@ -301,7 +341,7 @@ var Agent = (function() {
               .append('circle')
               .attr('id', 'a'+this.id)
               .attr('class', 'agent')
-              .attr('r', '4')
+              .attr('r', '2')
               .attr('cx', this.x)
               .attr('cy', this.y);
           },

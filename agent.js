@@ -7,9 +7,7 @@ var Agent = (function() {
 
         var Agent = function(params) {
           this.id = nextid();
-          this.node_id = params.node;
-
-          var node = node_info(graph_data[this.node_id]);
+          this.node = params.node;
           
           this.x = node.x;
           this.y = node.y;
