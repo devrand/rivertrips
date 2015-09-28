@@ -51,7 +51,7 @@ text{
 
 path.walk{
   stroke: dodgerblue;
-   stroke: orange;
+  /* stroke: orange;*/
   stroke-width: 0.1px;
   stroke-opacity: 0.3;
   fill: none;
@@ -90,8 +90,8 @@ var svg = d3.select("svg");
 
 var sample_size = 3000;
 var max_path = 30;
-d3.json("streets_changed.json", function(error, collection) {
-//d3.json("streets.json", function(error, collection) {
+//d3.json("streets_changed.json", function(error, collection) {
+d3.json("streets.json", function(error, collection) {
   if (error) throw error;
 
 
