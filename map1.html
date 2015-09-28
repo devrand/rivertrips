@@ -125,17 +125,6 @@ d3.json("streets.json", function(error, collection) {
     .attr("dy", -2)
     .text(function(d) { return d.properties.source; });
 
-/*
-  // make a graph in d3 form
-    var graph_d3 = {nodes: [], links: []};
-    collection.features.forEach(function(r){
-        var is = +r.properties.source - 1; 
-        var it = +r.properties.target - 1; 
-        graph_d3.links.push({source: is, target: it})
-        graph_d3.nodes[is] = {x:  projection( [r.properties.x1, r.properties.y1] )[0], y: projection( [r.properties.x1, r.properties.y1] )[1]}
-        graph_d3.nodes[it] = {x: projection( [r.properties.x2, r.properties.y2] )[0], y: projection( [r.properties.x2, r.properties.y2] )[1]}
-    })
-*/
 
   // make a graph in adj. list form
   // 1. switch source and target
@@ -157,14 +146,14 @@ d3.json("streets.json", function(error, collection) {
         gdata.map(function(d){
           var rez = {}; rez.x1 = d.x2; rez.x2 = d.x1; rez.y2 = d.y1; rez.y1 = d.y2;  
           rez.target = d.source; rez.source = d.target;
-          var geom = d.geom.slice(0);
+          var geom = d.geom.slice(0); // copy that
           geom.reverse();
           rez.geom = geom;
           return rez;
         })
     )
 
-    var graph_adj = d3.nest()
+    var graph_adj = d3.nest()  // graph in form of adjacement list 
       .key(function(d){return d.source;})
       .map(gdata);
 
@@ -174,25 +163,40 @@ d3.json("streets.json", function(error, collection) {
 
     
     
-    // return coordinates in time t
+    // simulation ...
     for(var t = 0; t < 500; t++){
           // our first agent 
         // generate initial node  464, 122, 130, 173, 250
-        var agent = new Agent(graph_adj[130][0]);
-        agent.add_to_map(svg);
-        agent.line(svg);
+        var agent1 = new Agent(graph_adj[130][0]);
+        agent1.add_to_map(svg);
+        agent1.line(svg);
         
-        var agent = new Agent(graph_adj[122][0]);
-        agent.add_to_map(svg);
-        agent.line(svg);
+        var agent2 = new Agent(graph_adj[122][0]);
+        agent2.add_to_map(svg);
+        agent2.line(svg);
         
-        agent = new Agent(graph_adj[250][0]);
-        agent.add_to_map(svg);
-        agent.line(svg);
+        var agent3 = new Agent(graph_adj[250][0]);
+        agent3.add_to_map(svg);
+        agent3.line(svg);
+
+        [agent1, agent2, agent3].forEach(function(a){
+          update_node_count(a.path, nodes);
+        })
+
+
 
     }
 console.log(d3.selectAll('path.walk')[0].length)
+console.log(nodes);
 });
+
+function update_node_count(path, nodes){
+  path.forEach(function(n){
+    nodes[n] = typeof nodes[n] === 'undefined' ? 1 : ++nodes[n];//count node crossing 
+    //return nodes;
+  })
+}
+
 
 function get_random(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -221,13 +225,13 @@ function path_shortener(array){
   return array;
 }
 
-var stddev = 16;
+var stddev = 20;
 var line_fun = d3.svg.line()
-  .x(function(d) { return d[0] + normalRandomScaled(0, stddev); })
-  .y(function(d) { return d[1] + normalRandomScaled(0, stddev/2); })
+  .x(function(d) { return d[0] + normalRandomScaled(0, stddev); }) // add jitter to lines
+  .y(function(d) { return d[1] + normalRandomScaled(0, stddev); })
   .interpolate("linear");
 
-
+var nodes = {};
 var Agent = (function() {
         var id = 0;  // class type var
    
@@ -237,39 +241,31 @@ var Agent = (function() {
 
         function create_path(agent){
           var current_node = agent.node, path = [current_node], next_node_obj;
-          while(path.length < 100){
-            //console.log(graph[current_node]);
-            var closest_nodes = graph[current_node];
+          while(path.length < 50){
+            //nodes[current_node] = typeof nodes[current_node] === 'undefined' ? 1 : ++nodes[current_node];//count node crossing 
+
+            var closest_nodes = graph[current_node]; // neighbours 
+            // avoid a trap
             if( closest_nodes.length === 1){ var n =  graph[current_node][0].target; path.push(n); current_node = n; continue; }
-            //console.log(closest_nodes);
-            //console.log(graph[current_node]);
-            var to_east = graph[current_node].filter(function(n){ return Math.abs( angle( n ) ) > 3.14159/2 }); // 
-          //console.log(to_east);
+            // we prefer directions closer to 180 degree
+            var to_east = graph[current_node].filter(function(n){ return Math.abs( angle( n ) ) > 3.14159/2.5 }); 
             if(to_east.length > 0 ){
               to_east.sort(function(a, b){return Math.abs( angle( b ) ) - Math.abs( angle( a ) ) });
-
-              if( Math.random() < 0.5 ){
-                next_node_obj = to_east[0]; // choose best direction  
-      //console.log(  Math.abs( angle(to_east[0])  )) 
-              } else {
+              if( Math.random() < 0.5 ){ // choose best of 'eastern' directions
+                next_node_obj = to_east[0]; 
+              } else { // choose any of them
                 next_node_obj = to_east[ get_random(0, to_east.length - 1) ];  
               }
-              
-            } else {
-      //console.log('click')        
+            } else { // choose any of non-eastern dirs
               next_node_obj = closest_nodes[ get_random(0, closest_nodes.length - 1) ];
             }  
-        //console.log(next_node_obj)
-        if(typeof next_node_obj === "undefined" ) {
-          console.log(current_node);
-          console.log(closest_nodes);
-        }  
               path.push(next_node_obj.target);
               current_node = next_node_obj.target;
+              
+              
+
           } 
-
           return path;
-
         }
 
         var Agent = function(node) {
@@ -277,10 +273,9 @@ var Agent = (function() {
           this.node = node.source;
           this.x = node.x1;
           this.y = node.y1;
-          this.path = path_shortener( path_shortener( create_path(this) ));
-//console.log( this.path );
+          this.path = path_shortener( path_shortener( create_path(this) )); //nodes
 
-          this.way = this.path.reduce(function(acum, current, index, array){
+          this.way = this.path.reduce(function(acum, current, index, array){ // line fragments
                var lines;
               if(array[index + 1]){
                 lines = graph[current].filter(function(d){ return d.source === current && d.target === array[index + 1] })[0].geom; 
@@ -315,6 +310,10 @@ var Agent = (function() {
               .attr('class', 'walk')
               .attr("d", line_fun(this.way))
              
+          },
+          position: function(t){}, // position at time t ,
+          nodes_since: function (time){
+  
           },
           //angle: function(n2){  return angle(this, n2); },
           length: function(n2){ return Math.sqrt((this.x - n2.x)*(this.x - n2.x) + (this.y - n2.y)*(this.y - n2.y)) }
