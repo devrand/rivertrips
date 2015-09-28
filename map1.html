@@ -183,7 +183,7 @@ d3.json("streets_changed.json", function(error, collection) {
         var src = get_random(0, node_list.length - 1);
         var agent = new Agent(graph_adj[  node_list[src]  ][0]);
         //agent.add_to_map(svg);
-         //agent.line(svg);
+        agent.line(svg);
      
         update_node_count(agent.path, nodes);
         distance += update_distance_count(   agent.way.filter(function(w){ return typeof w[0] !== 'undefined'; }) );
