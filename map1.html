@@ -51,9 +51,9 @@ text{
 
 path.walk{
   stroke: dodgerblue;
-  /* stroke: orange;*/
-  stroke-width: 0.1px;
-  stroke-opacity: 0.3;
+  stroke: #b2b1b1;
+  stroke-width: 0.08px;
+  stroke-opacity: 0.4;
   fill: none;
 }
 
@@ -72,16 +72,12 @@ path.way{
 
 <script>
 var width = 1900, height = 1200;
-var graph;
+var graph, nodes_new, nodes_old;
 
 var projection = d3.geo.mercator()
         .center([30.597, 50.439]) 
         .scale(3000000)
         .translate([width / 2, height / 2]);
-
-
-var distance = 0;
-
 
 
 var path = d3.geo.path()
@@ -90,8 +86,13 @@ var path = d3.geo.path()
 var svg = d3.select("svg");
 
 
-var sample_size = 3000;
+var distance = 0;
+
+var sample_size = 5000;
 var max_path = 30;
+var stddev = 30;
+
+
 
 queue()
     .defer(d3.json, 'streets_changed.json')
@@ -102,7 +103,7 @@ queue()
 //d3.json("streets_changed.json", function(error, collection) {
 function simulation(error, collection_new, collection_old) {
   if (error) throw error;
-  var collection = collection_old;
+  var collection = collection_old; 
 
   svg.selectAll("path") // roads
       .data(collection.features)
@@ -143,28 +144,48 @@ function simulation(error, collection_new, collection_old) {
     .attr("dy", -2)
     .text(function(d) { return d.properties.source; });
 
-
+   
   ///////
-    var graph_adj = make_graph(collection);
-    graph = graph_adj;
+    var graph_adj_new = make_graph(collection_new);
+    var graph_adj_old = make_graph(collection_old);
+
+    var graph_new = graph_adj_new;
+    var graph_old = graph_adj_old;
   //console.log( graph_adj );
     
-    node_list = d3.keys(graph);
+    node_list_new = d3.keys(graph_new);
+    node_list_old = d3.keys(graph_old);
     // sources: array of nodes
     
     // Simulation ...
-    var distance = simulate_it(sample_size, graph_adj, node_list, nodes, false); 
+    //graph = graph_new;
+    var distance_new = simulate_it(sample_size, graph_adj_new, node_list_new, nodes_new, false); 
+    //graph = graph_old;
+    var distance_old = simulate_it(sample_size, graph_adj_old, node_list_old, nodes_old, false); 
 
     // get only nodes on left size of main road:
-    var selected = filter_by_side(graph[632][0], graph[55][0], d3.values(graph), get_node);
+    
+    var selected_new = filter_by_side(graph_new[632][0], graph_new[55][0], d3.values(graph_new), get_node);
+    var selected_old = filter_by_side(graph_old[632][0], graph_old[55][0], d3.values(graph_old), get_node);
 
     // total count of agents passed through selected nodes
-    var rezult = selected.reduce(function(memo, current){ var cur_val = nodes[current[0].source] || 0; return memo + cur_val }, 0);
+    var rezult_new = selected.reduce(function(memo, current){ var cur_val = nodes_new[current[0].source] || 0; return memo + cur_val }, 0);
+    var rezult_old = selected.reduce(function(memo, current){ var cur_val = nodes_old[current[0].source] || 0; return memo + cur_val }, 0);
 
-    console.log("total flow: " + rezult);
-    console.log("mean distance: " + 2 * distance / sample_size);
+    console.log("total flow new: " + rezult_new);
+    console.log("mean distance new: " + 2 * distance_new / sample_size);
+
+    console.log("total flow old: " + rezult_old);
+    console.log("mean distance: " + 2 * distance_old / sample_size);
     //selected.forEach(function(n){ console.log(n[0].source); d3.select('#c'+n[0].source).style('fill', 'green')})
 
+    var diff = d3.keys(nodes_new).map( function(key){  
+      nodes_new[key] = typeof nodes_new[key] === 'undefined' ? 0 : nodes_new[key];  
+      nodes_old[key] = typeof nodes_old[key] === 'undefined' ? 0 : nodes_old[key];
+      return nodes_new[key] - nodes_old[key];  })
+
+    console.log(diff)
+  
 }
 
 // sample_size - how many agents to deploy
@@ -175,9 +196,9 @@ function simulation(error, collection_new, collection_old) {
 function simulate_it(sample_size, graph_adj, node_list, nodes, visualize){  
    for(var t = 0; t < sample_size; t++){
         var src = get_random(0, node_list.length - 1);
-        var agent = new Agent(graph_adj[  node_list[src]  ][0]);
+        var agent = new Agent(graph_adj[  node_list[src]  ][0], graph_adj);
         if(visualize){
-          agent.add_to_map(svg);
+          //agent.add_to_map(svg);  // draw a circle for starting place
           agent.line(svg);
         }  
      
@@ -285,7 +306,7 @@ function path_shortener(array){
   return array;
 }
 
-var stddev = 36;
+
 var line_fun = d3.svg.line()
   .x(function(d) { return d[0] + normalRandomScaled(0, stddev); }) // add jitter to lines
   .y(function(d) { return d[1] + normalRandomScaled(0, stddev); })
@@ -299,7 +320,7 @@ var Agent = (function() {
 
         function angle(n){  return Math.atan2(n.y2 - n.y1, n.x2 - n.x1); }
 
-        function create_path(agent){
+        function create_path(agent, graph){
           var current_node = agent.node, path = [current_node], next_node_obj;
           while(path.length < max_path){
             //nodes[current_node] = typeof nodes[current_node] === 'undefined' ? 1 : ++nodes[current_node];//count node crossing 
@@ -328,12 +349,12 @@ var Agent = (function() {
           return path;
         }
 
-        var Agent = function(node) {
+        var Agent = function(node, graph) {
           this.id = nextid();
           this.node = node.source;
           this.x = node.x1;
           this.y = node.y1;
-          this.path = path_shortener( path_shortener( create_path(this) )); //nodes
+          this.path = path_shortener( path_shortener( create_path(this, graph) )); //nodes
 
           this.way = this.path.reduce(function(acum, current, index, array){ // line fragments
                var lines;
