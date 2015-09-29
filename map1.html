@@ -68,6 +68,8 @@ path.way{
 <svg width="1900" height="1200"></svg>
 <script src="d3.min.js"></script>
 <script src="normal.js"></script>
+<script src="queue.min.js"></script>
+
 <script>
 var width = 1900, height = 1200;
 var graph;
@@ -90,10 +92,17 @@ var svg = d3.select("svg");
 
 var sample_size = 3000;
 var max_path = 30;
-//d3.json("streets_changed.json", function(error, collection) {
-d3.json("streets.json", function(error, collection) {
-  if (error) throw error;
 
+queue()
+    .defer(d3.json, 'streets_changed.json')
+    .defer(d3.json, 'streets.json')
+    .await(simulation);
+
+
+//d3.json("streets_changed.json", function(error, collection) {
+function simulation(error, collection_new, collection_old) {
+  if (error) throw error;
+  var collection = collection_old;
 
   svg.selectAll("path") // roads
       .data(collection.features)
@@ -135,6 +144,51 @@ d3.json("streets.json", function(error, collection) {
     .text(function(d) { return d.properties.source; });
 
 
+  ///////
+    var graph_adj = make_graph(collection);
+    graph = graph_adj;
+  //console.log( graph_adj );
+    
+    node_list = d3.keys(graph);
+    // sources: array of nodes
+    
+    // Simulation ...
+    var distance = simulate_it(sample_size, graph_adj, node_list, nodes, false); 
+
+    // get only nodes on left size of main road:
+    var selected = filter_by_side(graph[632][0], graph[55][0], d3.values(graph), get_node);
+
+    // total count of agents passed through selected nodes
+    var rezult = selected.reduce(function(memo, current){ var cur_val = nodes[current[0].source] || 0; return memo + cur_val }, 0);
+
+    console.log("total flow: " + rezult);
+    console.log("mean distance: " + 2 * distance / sample_size);
+    //selected.forEach(function(n){ console.log(n[0].source); d3.select('#c'+n[0].source).style('fill', 'green')})
+
+}
+
+// sample_size - how many agents to deploy
+// graph_adj - graph structure 
+// nodes_list - all nodes on graph
+// nodes - object with count of agents for nodes on path
+
+function simulate_it(sample_size, graph_adj, node_list, nodes, visualize){  
+   for(var t = 0; t < sample_size; t++){
+        var src = get_random(0, node_list.length - 1);
+        var agent = new Agent(graph_adj[  node_list[src]  ][0]);
+        if(visualize){
+          agent.add_to_map(svg);
+          agent.line(svg);
+        }  
+     
+        update_node_count(agent.path, nodes);
+        distance += update_distance_count(   agent.way.filter(function(w){ return typeof w[0] !== 'undefined'; }) );
+
+    }
+    return distance;  
+}
+
+function make_graph(collection){
   // make a graph in adj. list form
   // 1. switch source and target
     var gdata = collection.features.map(function(r){
@@ -166,43 +220,9 @@ d3.json("streets.json", function(error, collection) {
       .key(function(d){return d.source;})
       .map(gdata);
 
-    graph = graph_adj;
-  //console.log( graph_adj );
-    
-    node_list = d3.keys(graph);
-    // sources: array of nodes
-    
-    // Simulation ...
+     return graph_adj; 
+}
 
-    for(var t = 0; t < sample_size; t++){
-          // our first agent 
-     /*     
-        // generate initial node  122, 130, 250, 210, 470, 467
-        
-    */
-        var src = get_random(0, node_list.length - 1);
-        var agent = new Agent(graph_adj[  node_list[src]  ][0]);
-        //agent.add_to_map(svg);
-        agent.line(svg);
-     
-        update_node_count(agent.path, nodes);
-        distance += update_distance_count(   agent.way.filter(function(w){ return typeof w[0] !== 'undefined'; }) );
-
-    
-
-
-
-    }
-//console.log(d3.selectAll('path.walk')[0].length)
-//console.log(nodes);
-    var selected = filter_by_side(graph[632][0], graph[55][0], d3.values(graph), get_node);
-
-    var rezult = selected.reduce(function(memo, current){ var cur_val = nodes[current[0].source] || 0; return memo + cur_val }, 0);
-    console.log(rezult);
-    console.log(distance / sample_size);
-    //selected.forEach(function(n){ console.log(n[0].source); d3.select('#c'+n[0].source).style('fill', 'green')})
-
-});
 
 
 function get_node(raw_node){
