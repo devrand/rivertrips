@@ -34,36 +34,40 @@ circle.agent{
 }
 
 circle.source{
-  fill: fuchsia;
-  fill-opacity: 0.5;
+  fill: #823941;
+  fill-opacity: 0.2;
 }
 
 circle.target{
-  fill: maroon;
-  fill-opacity: 0.3;
+  fill: #823941;
+  fill-opacity: 0.2;
 }
 
 text{
   font-size: 0.3em;
   font-family: Arial;
-  fill: #888;
+  fill: #999;
 }
 
 path.walk{
   stroke: dodgerblue;
-  stroke: #b2b1b1;
-  stroke-width: 0.08px;
+  stroke: #84B8A1;
+  stroke-width: 0.15px;
   stroke-opacity: 0.4;
   fill: none;
 }
 
 path.way{
-  stroke: #bebebe;
+  stroke: #823941;
   stroke-width: 0.5px;
-  stroke-opacity: 0.9;
+  stroke-opacity: 0.5;
   fill: none;
 }
 
+
+body{
+  /*background-color: #000020;*/
+}
 </style>
 <svg width="1900" height="1200"></svg>
 <script src="d3.min.js"></script>
@@ -72,7 +76,7 @@ path.way{
 
 <script>
 var width = 1900, height = 1200;
-var graph, nodes_new, nodes_old;
+var graph, nodes_new = [], nodes_old = [];
 
 var projection = d3.geo.mercator()
         .center([30.597, 50.439]) 
@@ -84,13 +88,16 @@ var path = d3.geo.path()
     .projection(projection);
 
 var svg = d3.select("svg");
+var g_sim = svg.append('g').attr('class', 'sim');
+var g_graph = svg.append('g').attr('class', 'graph');
+
 
 
 var distance = 0;
 
-var sample_size = 5000;
-var max_path = 30;
-var stddev = 30;
+var sample_size = 10000;
+var max_path = 12;
+var stddev = 36;
 
 
 
@@ -105,13 +112,14 @@ function simulation(error, collection_new, collection_old) {
   if (error) throw error;
   var collection = collection_old; 
 
-  svg.selectAll("path") // roads
+  
+  g_graph.selectAll("path") // roads
       .data(collection.features)
     .enter().append("path")
       .attr("class", 'way')
       .attr("d", path);
 
-  var circles = svg.selectAll('circle')
+  var circles = g_graph.selectAll('circle')
   	.data(collection.features)
   	.enter();
 
@@ -159,9 +167,9 @@ function simulation(error, collection_new, collection_old) {
     
     // Simulation ...
     //graph = graph_new;
-    var distance_new = simulate_it(sample_size, graph_adj_new, node_list_new, nodes_new, false); 
+    var distance_new = simulate_it(sample_size, graph_adj_new, node_list_new, nodes_new, false);
     //graph = graph_old;
-    var distance_old = simulate_it(sample_size, graph_adj_old, node_list_old, nodes_old, false); 
+    var distance_old = simulate_it(sample_size, graph_adj_old, node_list_old, nodes_old, true); 
 
     // get only nodes on left size of main road:
     
@@ -169,8 +177,8 @@ function simulation(error, collection_new, collection_old) {
     var selected_old = filter_by_side(graph_old[632][0], graph_old[55][0], d3.values(graph_old), get_node);
 
     // total count of agents passed through selected nodes
-    var rezult_new = selected.reduce(function(memo, current){ var cur_val = nodes_new[current[0].source] || 0; return memo + cur_val }, 0);
-    var rezult_old = selected.reduce(function(memo, current){ var cur_val = nodes_old[current[0].source] || 0; return memo + cur_val }, 0);
+    var rezult_new = selected_new.reduce(function(memo, current){ var cur_val = nodes_new[current[0].source] || 0; return memo + cur_val }, 0);
+    var rezult_old = selected_old.reduce(function(memo, current){ var cur_val = nodes_old[current[0].source] || 0; return memo + cur_val }, 0);
 
     console.log("total flow new: " + rezult_new);
     console.log("mean distance new: " + 2 * distance_new / sample_size);
@@ -184,7 +192,7 @@ function simulation(error, collection_new, collection_old) {
       nodes_old[key] = typeof nodes_old[key] === 'undefined' ? 0 : nodes_old[key];
       return nodes_new[key] - nodes_old[key];  })
 
-    console.log(diff)
+    console.log( d3.sum(diff) )
   
 }
 
@@ -199,7 +207,7 @@ function simulate_it(sample_size, graph_adj, node_list, nodes, visualize){
         var agent = new Agent(graph_adj[  node_list[src]  ][0], graph_adj);
         if(visualize){
           //agent.add_to_map(svg);  // draw a circle for starting place
-          agent.line(svg);
+          agent.line(g_sim);
         }  
      
         update_node_count(agent.path, nodes);
